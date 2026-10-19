@@ -21,9 +21,9 @@ export function getDb(): DatabaseSync {
 }
 
 function initSchema(db: DatabaseSync) {
-  // WAL mode for high performance concurrency
+  // DELETE journal mode ensures zero memory-mapped -shm files on Windows
   try {
-    db.exec('PRAGMA journal_mode = WAL;');
+    db.exec('PRAGMA journal_mode = DELETE;');
     db.exec('PRAGMA foreign_keys = ON;');
   } catch (err) {
     console.warn('Pragma setup warning:', err);
