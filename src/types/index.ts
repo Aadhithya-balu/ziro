@@ -89,6 +89,8 @@ export interface EvidenceItem {
   details?: string;
 }
 
+export type EvidenceRecord = EvidenceItem;
+
 export interface ClassificationRecord {
   id: string;
   caseId: string;
@@ -145,6 +147,8 @@ export interface MockBureauDisputeRecord {
   idRequestReason?: string;
   lastBureauUpdateTimestamp: string;
 }
+
+export type DisputeRecord = MockBureauDisputeRecord;
 
 export interface StatusHistoryRecord {
   id: string;
