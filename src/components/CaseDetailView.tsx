@@ -5,24 +5,17 @@ import {
   ArrowLeft,
   ShieldCheck,
   AlertTriangle,
-  Clock,
   CheckCircle2,
   Send,
   FileText,
   Edit3,
   ThumbsUp,
   ThumbsDown,
-  HelpCircle,
-  ExternalLink,
   RefreshCw,
-  Layers,
   Sparkles,
   Lock,
   Search,
   Scale,
-  Sliders,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react';
 import {
   CaseRecord,
@@ -105,6 +98,7 @@ export function CaseDetailView({ caseId, onBack, onRefreshData }: CaseDetailView
 
   useEffect(() => {
     fetchCaseDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId]);
 
   const latestDraft = drafts[0] || null;

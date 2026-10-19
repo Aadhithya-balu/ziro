@@ -3,13 +3,10 @@
 import React, { useState } from 'react';
 import {
   UploadCloud,
-  FileCheck,
   AlertCircle,
   ShieldCheck,
-  Check,
   Sparkles,
   ArrowRight,
-  HelpCircle,
   FileText,
 } from 'lucide-react';
 

@@ -5,12 +5,7 @@ import {
   Building2,
   Search,
   Database,
-  ExternalLink,
-  ShieldAlert,
-  CheckCircle2,
-  AlertTriangle,
   RefreshCw,
-  FolderOpen,
 } from 'lucide-react';
 import { MockBureauAccount } from '@/lib/bureau/mock-portal';
 

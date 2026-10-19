@@ -27,7 +27,7 @@ export class ClassificationEngine {
     recommendedNextStep: string;
     humanReviewRequired: boolean;
   } {
-    const { report, evidence, userFacts } = input;
+    const { report, userFacts } = input;
 
     // Rule 1: UNCERTAIN if user facts are unconfirmed or essential dates are completely missing
     if (!userFacts.confirmed || !report.userFactConfirmed) {

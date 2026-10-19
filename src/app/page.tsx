@@ -22,7 +22,7 @@ export default function Home() {
     resolvedDisputes: 0,
     requiringAdditionalEvidence: 0,
   });
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
 
   const loadData = async () => {

@@ -5,11 +5,8 @@ import {
   ScrollText,
   Search,
   Filter,
-  ShieldCheck,
   Eye,
   RefreshCw,
-  Clock,
-  Terminal,
 } from 'lucide-react';
 import { AuditEventRecord } from '@/types';
 
