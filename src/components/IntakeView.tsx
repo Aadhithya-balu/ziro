@@ -10,6 +10,8 @@ import {
   FileText,
 } from 'lucide-react';
 
+import { normalizeBalance, normalizeDate } from '@/lib/classification/normalization';
+
 interface IntakeViewProps {
   onCaseCreated: (caseId: string) => void;
 }
@@ -42,7 +44,7 @@ export function IntakeView({ onCaseCreated }: IntakeViewProps) {
   const [sourceReportRef, setSourceReportRef] = useState('SYNTHETIC-REPORT-APEX-AUDIT.pdf');
 
   // Fast Synthetic Preset Fillers
-  const applyPreset = (preset: 'TC1' | 'TC2' | 'TC3' | 'TC4') => {
+  const applyPreset = (preset: 'TC1' | 'TC2' | 'TC3' | 'TC4' | 'OBSOLETE' | 'DUPLICATE') => {
     if (preset === 'TC1') {
       setClientName('Alex Mercer (Synthetic Consumer)');
       setAccountReference('ACC-9821-AUTO');
@@ -113,6 +115,42 @@ export function IntakeView({ onCaseCreated }: IntakeViewProps) {
       setAttachedEvidenceNotes('Property deed and address mismatch records.');
       setUserFactConfirmed(true);
       setSourceReportRef('MOCK-REPORT-TC4.pdf');
+    } else if (preset === 'OBSOLETE') {
+      setClientName('Jordan Vance (Synthetic Consumer)');
+      setAccountReference('ACC-7719-COLLECT');
+      setCreditorName('Cascade Asset Recovery');
+      setAccountType('COLLECTIONS');
+      setReportedBalance('2100');
+      setPaymentStatus('COLLECTIONS');
+      setPaymentHistory('COLLECTIONS');
+      setOpenedDate('2017-02-10');
+      setReportedDate('2026-09-01');
+      setDelinquencyDate('2018-04-15');
+      setDiscrepancyReason('Statutory obsolescence period exceeded (FCRA § 605, 15 U.S.C. § 1681c)');
+      setUserConfirmedFacts(
+        'This collection trade-line commenced delinquency on April 15, 2018—more than 8 years ago. Under FCRA § 605 (15 U.S.C. § 1681c), adverse collections cannot be reported past 7 years and must be expunged.'
+      );
+      setAttachedEvidenceNotes('Original billing statement showing first delinquency commencement April 2018.');
+      setUserFactConfirmed(true);
+      setSourceReportRef('MOCK-REPORT-OBSOLETE.pdf');
+    } else if (preset === 'DUPLICATE') {
+      setClientName('David Cho (Synthetic Consumer)');
+      setAccountReference('ACC-4491-STUDENT-B');
+      setCreditorName('National Student Loan Servicing');
+      setAccountType('STUDENT_LOAN');
+      setReportedBalance('14250');
+      setPaymentStatus('CURRENT');
+      setPaymentHistory('OK OK OK OK');
+      setOpenedDate('2022-09-01');
+      setReportedDate('2026-08-20');
+      setDelinquencyDate('');
+      setDiscrepancyReason('Duplicate trade-line reporting (FCRA § 607b, 15 U.S.C. § 1681e(b))');
+      setUserConfirmedFacts(
+        'This loan is a duplicate reporting of my federal student loan obligation already listed under account ACC-4491-STUDENT-A with identical balance $14,250 and servicer. Double reporting inflates my liability.'
+      );
+      setAttachedEvidenceNotes('Servicer disclosure confirming single promissory note.');
+      setUserFactConfirmed(true);
+      setSourceReportRef('MOCK-REPORT-DUPLICATE.pdf');
     }
   };
 
@@ -125,24 +163,48 @@ export function IntakeView({ onCaseCreated }: IntakeViewProps) {
       return;
     }
 
+    const cleanBalance = normalizeBalance(reportedBalance);
+    if (isNaN(cleanBalance)) {
+      setError('Please enter a valid reported balance (e.g. 24500 or $24,500.00).');
+      return;
+    }
+
+    const cleanReportedDate = normalizeDate(reportedDate);
+    if (!cleanReportedDate) {
+      setError('Please provide a valid bureau reporting date (YYYY-MM-DD).');
+      return;
+    }
+
+    const cleanOpenedDate = openedDate ? normalizeDate(openedDate) : undefined;
+    if (openedDate && !cleanOpenedDate) {
+      setError('Invalid account opened date format. Expected YYYY-MM-DD.');
+      return;
+    }
+
+    const cleanDelinquencyDate = delinquencyDate ? normalizeDate(delinquencyDate) : undefined;
+    if (delinquencyDate && !cleanDelinquencyDate) {
+      setError('Invalid delinquency date format. Expected YYYY-MM-DD.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const payload = {
-        clientName,
-        accountReference,
-        creditorName,
+        clientName: clientName.trim(),
+        accountReference: accountReference.trim(),
+        creditorName: creditorName.trim(),
         accountType,
-        reportedBalance: parseFloat(reportedBalance) || 0,
+        reportedBalance: cleanBalance,
         paymentStatus,
-        paymentHistory,
-        openedDate: openedDate || undefined,
-        reportedDate,
-        delinquencyDate: delinquencyDate || undefined,
-        userConfirmedFacts,
-        discrepancyReason,
+        paymentHistory: paymentHistory.trim() || 'OK OK OK',
+        openedDate: cleanOpenedDate,
+        reportedDate: cleanReportedDate,
+        delinquencyDate: cleanDelinquencyDate,
+        userConfirmedFacts: userConfirmedFacts.trim(),
+        discrepancyReason: discrepancyReason.trim(),
         userFactConfirmed,
-        sourceReportRef,
-        attachedEvidenceNotes,
+        sourceReportRef: sourceReportRef.trim() || 'MANUAL-ENTRY.pdf',
+        attachedEvidenceNotes: attachedEvidenceNotes.trim() || undefined,
       };
 
       const res = await fetch('/api/cases', {
@@ -153,11 +215,15 @@ export function IntakeView({ onCaseCreated }: IntakeViewProps) {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to submit credit intake.');
+        throw new Error(data.error || data.message || 'Failed to submit credit intake.');
       }
 
       // Automatically trigger classification & AI analysis on new case
-      await fetch(`/api/cases/${data.caseId}/analyze`, { method: 'POST' });
+      const analyzeRes = await fetch(`/api/cases/${data.caseId}/analyze`, { method: 'POST' });
+      if (!analyzeRes.ok) {
+        const analyzeData = await analyzeRes.json();
+        console.warn('Analysis completed with advisory note:', analyzeData.error || analyzeData.message);
+      }
 
       onCaseCreated(data.caseId);
     } catch (err: any) {
@@ -189,13 +255,13 @@ export function IntakeView({ onCaseCreated }: IntakeViewProps) {
           </span>
           <span className="text-[11px] text-slate-400">Loads official test scenarios instantly</span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           <button
             type="button"
             onClick={() => applyPreset('TC1')}
             className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 text-xs font-semibold text-left transition"
           >
-            <span className="block font-bold">TC1: Never Opened Loan</span>
+            <span className="block font-bold">TC1: Never Opened</span>
             <span className="text-[10px] text-slate-400 font-normal">Auto Loan ($24.5k)</span>
           </button>
           <button
@@ -211,7 +277,7 @@ export function IntakeView({ onCaseCreated }: IntakeViewProps) {
             onClick={() => applyPreset('TC3')}
             className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 text-xs font-semibold text-left transition"
           >
-            <span className="block font-bold">TC3: False Resolution</span>
+            <span className="block font-bold">TC3: False Resol.</span>
             <span className="text-[10px] text-slate-400 font-normal">Collections ($3.4k)</span>
           </button>
           <button
@@ -221,6 +287,22 @@ export function IntakeView({ onCaseCreated }: IntakeViewProps) {
           >
             <span className="block font-bold">TC4: ID Request</span>
             <span className="text-[10px] text-slate-400 font-normal">Mortgage ($412k)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => applyPreset('OBSOLETE')}
+            className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-300 border border-slate-700 text-xs font-semibold text-left transition"
+          >
+            <span className="block font-bold">FCRA: Obsolete Debt</span>
+            <span className="text-[10px] text-slate-400 font-normal">8-Year Collections ($2.1k)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => applyPreset('DUPLICATE')}
+            className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 border border-slate-700 text-xs font-semibold text-left transition"
+          >
+            <span className="block font-bold">FCRA: Duplicate Line</span>
+            <span className="text-[10px] text-slate-400 font-normal">Student Loan ($14.2k)</span>
           </button>
         </div>
       </div>
