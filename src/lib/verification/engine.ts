@@ -42,60 +42,127 @@ export class IndependentVerificationEngine {
     const intendedCorrection = draftRow.requested_correction;
 
     // 2. Query freshly re-downloaded report from the mock bureau portal
-    const freshDownload = MockCreditBureauPortal.reDownloadReport(reportRow.account_reference);
+    let freshDownload: ReturnType<typeof MockCreditBureauPortal.reDownloadReport> | null = null;
+    try {
+      freshDownload = MockCreditBureauPortal.reDownloadReport(reportRow.account_reference);
+    } catch {
+      freshDownload = null;
+    }
 
     let outcome: OutcomeVerificationStatus = 'INCONCLUSIVE';
     let latestObservedValue = 'Unknown / Account Not Located in Fresh Download';
     let explanation = '';
     let comparisonDetails = '';
 
-    if (!freshDownload.account) {
-      // The account is completely absent from the bureau!
-      // If the intended correction was deletion of unauthorized account, this is a VERIFIED CORRECTION!
+    const isRemovalIntended =
+      intendedCorrection.toLowerCase().includes('delete') ||
+      intendedCorrection.toLowerCase().includes('removal') ||
+      intendedCorrection.toLowerCase().includes('remove') ||
+      intendedCorrection.toLowerCase().includes('unauthorized') ||
+      targetField.toLowerCase().includes('ownership') ||
+      (reportRow.discrepancy_reason &&
+        (reportRow.discrepancy_reason.toLowerCase().includes('unauthorized') ||
+          reportRow.discrepancy_reason.toLowerCase().includes('never opened')));
+
+    if (!freshDownload || !freshDownload.portalRoute) {
+      outcome = 'INCONCLUSIVE';
+      latestObservedValue = 'AUDIT DOWNLOAD ERROR: Failed to obtain report snapshot from portal.';
+      explanation = 'Independent outcome verification is INCONCLUSIVE: Fresh credit report could not be retrieved from the bureau portal.';
+      comparisonDetails = 'Download endpoint or portal route unavailable.';
+    } else if (!freshDownload.account) {
+      // The account is completely absent from the fresh bureau report
       latestObservedValue = 'TRADE-LINE DELETED: No record found in bureau database.';
-      if (
-        intendedCorrection.toLowerCase().includes('delete') ||
-        intendedCorrection.toLowerCase().includes('unauthorized') ||
-        targetField.toLowerCase().includes('ownership')
-      ) {
+      if (isRemovalIntended) {
         outcome = 'VERIFIED_CORRECTION';
         explanation =
           'Verification SUCCESS: The disputed fraudulent/unauthorized trade-line has been completely removed from the credit bureau file.';
         comparisonDetails = `Original entry: Active account with balance $${reportRow.reported_balance} -> Fresh report: Trade-line deleted (verified absent).`;
       } else {
+        // Removal was NOT the intended outcome; missing entry is inconclusive
         outcome = 'INCONCLUSIVE';
-        explanation = 'Trade-line is missing, but correction requested modification rather than deletion.';
-        comparisonDetails = 'Account missing from newly downloaded report.';
+        explanation = `Trade-line is missing from the freshly pulled report, but the requested correction was field modification rather than deletion. Expected modification: "${intendedCorrection}".`;
+        comparisonDetails = `Account missing from newly downloaded report; intended correction was "${intendedCorrection}".`;
       }
     } else {
       const freshAcc = freshDownload.account;
       latestObservedValue = `Balance: $${freshAcc.balance}, Status: ${freshAcc.paymentStatus}, AccountRef: ${freshAcc.accountReference}`;
 
-      // Check whether the error was actually corrected
-      if (
-        intendedCorrection.toLowerCase().includes('delete') ||
-        intendedCorrection.toLowerCase().includes('unauthorized') ||
-        targetField.toLowerCase().includes('ownership')
-      ) {
-        // Bureau marked it RESOLVED, but trade-line is STILL PRESENT (TC3 scenario)!
+      if (isRemovalIntended) {
+        // Account still exists when deletion was requested!
         outcome = 'NOT_CORRECTED';
-        explanation =
-          'CRITICAL AUDIT MISMATCH: The Credit Bureau marked the dispute as RESOLVED, but the independent re-downloaded credit report proves the disputed unauthorized trade-line STILL EXISTS on the consumer file unchanged.';
+        if (disputeRow.current_status === 'RESOLVED') {
+          explanation =
+            'CRITICAL AUDIT MISMATCH: The Credit Bureau marked the dispute as RESOLVED, but the independent re-downloaded credit report proves the disputed unauthorized trade-line STILL EXISTS on the consumer file unchanged.';
+        } else {
+          explanation =
+            'Audit check failed: The disputed unauthorized trade-line remains active on the fresh bureau report when complete deletion was required.';
+        }
         comparisonDetails = `Dispute Status: ${disputeRow.current_status} | Intended Correction: Deletion | Actual Bureau Record: Account still active with balance $${freshAcc.balance}.`;
       } else if (
+        targetField.toLowerCase().includes('balance') ||
+        intendedCorrection.toLowerCase().includes('balance') ||
         intendedCorrection.toLowerCase().includes('$0') ||
         intendedCorrection.toLowerCase().includes('paid in full')
       ) {
-        if (freshAcc.balance === 0 || freshAcc.paymentStatus === 'CURRENT') {
-          outcome = 'VERIFIED_CORRECTION';
-          explanation =
-            'Verification SUCCESS: Balance was successfully updated to $0.00 and payment status is Current.';
-          comparisonDetails = `Balance corrected from $${reportRow.reported_balance} to $${freshAcc.balance}.`;
+        // Balance modification audit
+        let targetBalance: number | null = null;
+        if (
+          intendedCorrection.toLowerCase().includes('$0') ||
+          intendedCorrection.toLowerCase().includes('paid in full') ||
+          intendedCorrection.toLowerCase().includes('zero balance')
+        ) {
+          targetBalance = 0;
         } else {
+          const match = intendedCorrection.match(/\$([0-9,]+(?:\.[0-9]{2})?)/);
+          if (match) {
+            targetBalance = parseFloat(match[1].replace(/,/g, ''));
+          }
+        }
+
+        if (targetBalance !== null && freshAcc.balance === targetBalance) {
+          outcome = 'VERIFIED_CORRECTION';
+          explanation = `Verification SUCCESS: Balance was successfully updated from $${reportRow.reported_balance} to $${freshAcc.balance} as requested.`;
+          comparisonDetails = `Original balance: $${reportRow.reported_balance} -> Fresh report balance: $${freshAcc.balance} (Target: $${targetBalance}).`;
+        } else if (freshAcc.balance === Number(reportRow.reported_balance)) {
           outcome = 'NOT_CORRECTED';
           explanation =
-            'The bureau marked the dispute closed, but the reported balance remains unchanged on the freshly pulled report.';
-          comparisonDetails = `Original: $${reportRow.reported_balance} vs Latest: $${freshAcc.balance}.`;
+            disputeRow.current_status === 'RESOLVED'
+              ? `CRITICAL AUDIT MISMATCH: The Credit Bureau marked the dispute as RESOLVED, but the independent re-downloaded credit report proves the reported balance remains unchanged ($${freshAcc.balance}).`
+              : `Disputed balance remains unchanged: Expected $${targetBalance ?? 'corrected balance'}, but fresh report still shows $${freshAcc.balance}.`;
+          comparisonDetails = `Original: $${reportRow.reported_balance} vs Fresh report: $${freshAcc.balance} (Intended: $${targetBalance ?? 'corrected balance'}).`;
+        } else {
+          outcome = 'INCONCLUSIVE';
+          explanation = `Reported balance is $${freshAcc.balance}, which differs from both original reported balance ($${reportRow.reported_balance}) and intended target ($${targetBalance ?? 'unknown'}). Verification is inconclusive.`;
+          comparisonDetails = `Original: $${reportRow.reported_balance}, Fresh report: $${freshAcc.balance}, Target: $${targetBalance ?? 'N/A'}.`;
+        }
+      } else if (
+        targetField.toLowerCase().includes('payment') ||
+        targetField.toLowerCase().includes('status') ||
+        intendedCorrection.toLowerCase().includes('late') ||
+        intendedCorrection.toLowerCase().includes('current')
+      ) {
+        // Payment status modification audit
+        if (intendedCorrection.toLowerCase().includes('current')) {
+          if (freshAcc.paymentStatus === 'CURRENT') {
+            outcome = 'VERIFIED_CORRECTION';
+            explanation = 'Verification SUCCESS: Payment status has been corrected to CURRENT on the freshly pulled report.';
+            comparisonDetails = `Original status: ${reportRow.payment_status} -> Fresh report status: ${freshAcc.paymentStatus}.`;
+          } else if (freshAcc.paymentStatus === reportRow.payment_status) {
+            outcome = 'NOT_CORRECTED';
+            explanation =
+              disputeRow.current_status === 'RESOLVED'
+                ? `CRITICAL AUDIT MISMATCH: The Credit Bureau marked the dispute as RESOLVED, but payment status remains ${freshAcc.paymentStatus} on the freshly pulled report.`
+                : `Disputed payment status remains unchanged: ${freshAcc.paymentStatus}.`;
+            comparisonDetails = `Original status: ${reportRow.payment_status} vs Fresh report: ${freshAcc.paymentStatus}.`;
+          } else {
+            outcome = 'INCONCLUSIVE';
+            explanation = `Payment status is ${freshAcc.paymentStatus}, which differs from both original and intended CURRENT. Outcome is inconclusive.`;
+            comparisonDetails = `Original: ${reportRow.payment_status}, Observed: ${freshAcc.paymentStatus}.`;
+          }
+        } else {
+          outcome = 'INCONCLUSIVE';
+          explanation = 'Payment status correction could not be definitively evaluated from trade-line fields.';
+          comparisonDetails = `Observed: ${latestObservedValue}`;
         }
       } else {
         outcome = 'INCONCLUSIVE';
@@ -115,7 +182,7 @@ export class IndependentVerificationEngine {
       latestObservedValue,
       intendedCorrection,
       outcome,
-      reportReDownloadRef: freshDownload.portalRoute,
+      reportReDownloadRef: freshDownload?.portalRoute || `mock://apex-bureau.local/v1/download/audit-report/${reportRow.account_reference}`,
       verifiedTimestamp: now,
       comparisonDetails,
       explanation,

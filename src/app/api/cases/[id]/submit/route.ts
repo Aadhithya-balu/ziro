@@ -51,6 +51,15 @@ export async function POST(
       simulateIdRequest,
     });
 
+    if (submission.isIdempotent) {
+      return NextResponse.json({
+        success: true,
+        dispute: submission,
+        message: submission.message,
+        isIdempotentReplay: true,
+      });
+    }
+
     const now = new Date().toISOString();
     const newWorkflowStatus = submission.status;
 
