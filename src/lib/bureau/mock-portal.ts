@@ -25,6 +25,7 @@ export interface MockBureauDisputeResponse {
   message: string;
   requiresIdentification?: boolean;
   identificationInstructions?: string;
+  isIdempotent?: boolean;
 }
 
 export class MockCreditBureauPortal {
@@ -54,6 +55,58 @@ export class MockCreditBureauPortal {
       isFraudulentOrUnauthorized: Boolean(row.is_fraudulent_or_unauthorized),
       bureauNotes: row.bureau_notes || undefined,
     };
+  }
+
+  /**
+   * Search accounts by multiple filters: reference, creditor name, or SSN last 4
+   */
+  static searchAccounts(filters?: {
+    accountReference?: string;
+    creditorName?: string;
+    consumerSsnLast4?: string;
+    limit?: number;
+  }): MockBureauAccount[] {
+    const db = getDb();
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (filters?.accountReference) {
+      conditions.push(`account_reference LIKE ?`);
+      params.push(`%${filters.accountReference}%`);
+    }
+
+    if (filters?.creditorName) {
+      conditions.push(`creditor_name LIKE ?`);
+      params.push(`%${filters.creditorName}%`);
+    }
+
+    if (filters?.consumerSsnLast4) {
+      conditions.push(`consumer_ssn_last4 = ?`);
+      params.push(filters.consumerSsnLast4);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const limitClause = filters?.limit ? `LIMIT ${filters.limit}` : '';
+    const query = db.prepare(
+      `SELECT * FROM mock_bureau_accounts ${whereClause} ORDER BY reported_date DESC ${limitClause}`
+    );
+
+    const rows = query.all(...params) as any[];
+
+    return rows.map((row) => ({
+      accountReference: row.account_reference,
+      consumerName: row.consumer_name,
+      consumerSsnLast4: row.consumer_ssn_last4,
+      creditorName: row.creditor_name,
+      accountType: row.account_type,
+      balance: Number(row.balance),
+      paymentStatus: row.payment_status,
+      paymentHistory: row.payment_history,
+      openedDate: row.opened_date || undefined,
+      reportedDate: row.reported_date,
+      isFraudulentOrUnauthorized: Boolean(row.is_fraudulent_or_unauthorized),
+      bureauNotes: row.bureau_notes || undefined,
+    }));
   }
 
   /**
@@ -93,6 +146,32 @@ export class MockCreditBureauPortal {
   }
 
   /**
+   * Update an existing account trade-line (useful for simulating corrections or audits)
+   */
+  static updateAccount(accountReference: string, updates: Partial<MockBureauAccount>) {
+    const existing = this.searchAccount(accountReference);
+    if (!existing) {
+      throw new Error(`Cannot update account ${accountReference}: Account not found in mock bureau.`);
+    }
+
+    const merged: MockBureauAccount = {
+      ...existing,
+      ...updates,
+      accountReference,
+    };
+
+    this.upsertAccount(merged);
+  }
+
+  /**
+   * Remove a trade-line from the mock bureau (simulates verified deletion)
+   */
+  static deleteAccount(accountReference: string) {
+    const db = getDb();
+    db.prepare(`DELETE FROM mock_bureau_accounts WHERE account_reference = ?`).run(accountReference);
+  }
+
+  /**
    * Retrieve official credit report snapshot for consumer
    */
   static getCreditReport(ssnLast4: string = '1234') {
@@ -119,6 +198,34 @@ export class MockCreditBureauPortal {
       })),
       isSimulatedMockData: true,
     };
+  }
+
+  /**
+   * Retrieve all mock bureau disputes
+   */
+  static getAllDisputes() {
+    const db = getDb();
+    const query = db.prepare(`
+      SELECT d.*, c.client_name, c.account_reference, c.issue_type, c.consent_given_for_id_upload
+      FROM mock_bureau_disputes d
+      LEFT JOIN cases c ON d.case_id = c.id
+      ORDER BY d.submission_timestamp DESC
+    `);
+    return query.all() as any[];
+  }
+
+  /**
+   * Retrieve a specific dispute by dispute ID
+   */
+  static getDispute(disputeId: string) {
+    const db = getDb();
+    const query = db.prepare(`
+      SELECT d.*, c.client_name, c.account_reference, c.issue_type, c.consent_given_for_id_upload
+      FROM mock_bureau_disputes d
+      LEFT JOIN cases c ON d.case_id = c.id
+      WHERE d.id = ?
+    `);
+    return query.get(disputeId) as any;
   }
 
   /**
@@ -203,6 +310,7 @@ export class MockCreditBureauPortal {
         message: 'Idempotent request recognized. Returning existing dispute submission.',
         requiresIdentification: existing.current_status === 'ADDITIONAL_INFORMATION_REQUIRED',
         identificationInstructions: existing.id_request_reason || undefined,
+        isIdempotent: true,
       };
     }
 
@@ -256,6 +364,7 @@ export class MockCreditBureauPortal {
         : 'Dispute successfully lodged in Mock Bureau Queue. Tracking ID generated.',
       requiresIdentification: !!params.simulateIdRequest,
       identificationInstructions: idRequestReason,
+      isIdempotent: false,
     };
   }
 
