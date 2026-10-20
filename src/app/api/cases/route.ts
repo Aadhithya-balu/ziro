@@ -6,30 +6,86 @@ import { logAuditEvent } from '@/lib/audit/logger';
 import { MockCreditBureauPortal } from '@/lib/bureau/mock-portal';
 
 
+import {
+  normalizeAccountType,
+  normalizePaymentStatus,
+  normalizeBalance,
+  normalizeDate,
+  normalizeAccountReference,
+  normalizeCreditorName,
+} from '@/lib/classification/normalization';
+import { AccountType, PaymentStatus } from '@/types';
+
 const CreateCaseSchema = z.object({
-  clientName: z.string().min(2, 'Client name is required'),
-  accountReference: z.string().min(3, 'Account reference is required'),
-  creditorName: z.string().min(2, 'Creditor name is required'),
-  accountType: z.enum([
-    'MORTGAGE',
-    'AUTO_LOAN',
-    'CREDIT_CARD',
-    'PERSONAL_LOAN',
-    'STUDENT_LOAN',
-    'REVOLVING',
-  ]),
-  reportedBalance: z.number().min(0, 'Balance must be non-negative'),
-  paymentStatus: z.enum(['CURRENT', 'LATE_30', 'LATE_60', 'LATE_90', 'CHARGE_OFF', 'COLLECTIONS']),
-  paymentHistory: z.string().default('OK OK OK'),
-  openedDate: z.string().optional(),
-  reportedDate: z.string().min(4, 'Reported date is required'),
-  delinquencyDate: z.string().optional(),
-  userConfirmedFacts: z.string().min(5, 'User confirmed facts are required'),
-  discrepancyReason: z.string().min(5, 'Reason for discrepancy is required'),
+  clientName: z
+    .string()
+    .trim()
+    .min(2, 'Client name is required (minimum 2 characters)'),
+  accountReference: z
+    .string()
+    .transform((val) => normalizeAccountReference(val))
+    .refine((val) => val.length >= 3, {
+      message: 'Account reference is required (minimum 3 characters)',
+    }),
+  creditorName: z
+    .string()
+    .transform((val) => normalizeCreditorName(val))
+    .refine((val) => val.length >= 2, {
+      message: 'Creditor name is required (minimum 2 characters)',
+    }),
+  accountType: z
+    .unknown()
+    .transform((val) => normalizeAccountType(val))
+    .refine((val): val is AccountType => val !== null, {
+      message:
+        'Invalid account type. Expected one of: MORTGAGE, AUTO_LOAN, CREDIT_CARD, PERSONAL_LOAN, STUDENT_LOAN, REVOLVING, COLLECTIONS',
+    }),
+  reportedBalance: z
+    .unknown()
+    .transform((val) => normalizeBalance(val))
+    .refine((val) => Number.isFinite(val) && val >= 0, {
+      message: 'Reported balance must be a valid non-negative number or currency string (e.g. $1,850.00)',
+    }),
+  paymentStatus: z
+    .unknown()
+    .transform((val) => normalizePaymentStatus(val))
+    .refine((val): val is PaymentStatus => val !== null, {
+      message:
+        'Invalid payment status. Expected one of: CURRENT, LATE_30, LATE_60, LATE_90, CHARGE_OFF, COLLECTIONS',
+    }),
+  paymentHistory: z.string().trim().default('OK OK OK'),
+  openedDate: z
+    .unknown()
+    .optional()
+    .transform((val) => (val ? normalizeDate(val) : undefined))
+    .refine((val) => val === undefined || val !== null, {
+      message: 'Invalid opened date. Expected valid ISO date format (YYYY-MM-DD)',
+    }),
+  reportedDate: z
+    .unknown()
+    .transform((val) => normalizeDate(val))
+    .refine((val): val is string => typeof val === 'string' && val.length > 0, {
+      message: 'Reported date is required in valid ISO date format (YYYY-MM-DD)',
+    }),
+  delinquencyDate: z
+    .unknown()
+    .optional()
+    .transform((val) => (val ? normalizeDate(val) : undefined))
+    .refine((val) => val === undefined || val !== null, {
+      message: 'Invalid delinquency date. Expected valid ISO date format (YYYY-MM-DD)',
+    }),
+  userConfirmedFacts: z
+    .string()
+    .trim()
+    .min(5, 'User confirmed facts are required (minimum 5 characters)'),
+  discrepancyReason: z
+    .string()
+    .trim()
+    .min(5, 'Reason for discrepancy is required (minimum 5 characters)'),
   userFactConfirmed: z.boolean().refine((val) => val === true, {
     message: 'Consumer must certify that the entered facts are accurate to the best of their knowledge',
   }),
-  sourceReportRef: z.string().default('MANUAL-OR-UPLOADED-ENTRY'),
+  sourceReportRef: z.string().trim().default('MANUAL-OR-UPLOADED-ENTRY'),
   attachedEvidenceNotes: z.string().optional(),
 });
 
@@ -195,8 +251,13 @@ export async function POST(request: Request) {
     });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
+      const details = error.issues.map((i) => `${i.path.join('.') || 'field'}: ${i.message}`).join('; ');
       return NextResponse.json(
-        { error: 'Validation failed', issues: error.issues },
+        {
+          error: `Validation failed: ${details}`,
+          message: `Validation failed: ${details}`,
+          issues: error.issues,
+        },
         { status: 400 }
       );
     }
