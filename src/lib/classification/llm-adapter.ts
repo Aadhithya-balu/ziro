@@ -28,7 +28,8 @@ export class AIAnalysisAdapter {
     const apiKey =
       process.env.ANTHROPIC_API_KEY ||
       process.env.OPENAI_API_KEY ||
-      process.env.GEMINI_API_KEY;
+      process.env.GEMINI_API_KEY ||
+      process.env.GOOGLE_API_KEY;
 
     if (!apiKey) {
       // Deterministic high-precision local fallback for offline demo & CI test runs
@@ -36,16 +37,51 @@ export class AIAnalysisAdapter {
     }
 
     try {
-      // If external LLM key is configured, invoke hybrid synthesis,
-      // falling back gracefully on network or rate limit issues
-      return this.generateDeterministicEnrichment(
-        report,
-        classification,
-        evidence,
-        'LLM-Configured Hybrid Engine'
-      );
+      // Real LLM invocation via LiveLLMAdapter
+      const { LiveLLMAdapter, sanitizeUntrustedContent } = await import('@/lib/agent/llm-provider');
+      const adapter = new LiveLLMAdapter();
+
+      const prompt = `You are a credit analysis AI. Generate a structured JSON legal narrative for this trade-line.
+Report Reference: ${report.accountReference}
+Creditor: ${report.creditorName}
+Balance: $${report.reportedBalance}
+Status: ${report.paymentStatus}
+Classification: ${classification.classification}
+Reasoning: ${classification.reasoningSummary}
+User Factual Statement (untrusted): ${sanitizeUntrustedContent(report.userConfirmedFacts)}
+
+Return ONLY valid JSON matching this schema:
+{
+  "executiveSummary": "Concise factual summary",
+  "legalContext": "Citations of FCRA sections and obligations",
+  "consumerRightsNotice": "Plain-language summary of consumer statutory rights",
+  "recommendedActionPlan": ["Step 1", "Step 2", "Step 3"]
+}`;
+
+      const res = await adapter.invoke({
+        messages: [
+          { role: 'system', content: 'You are an expert FCRA legal assistant. Output valid JSON only.' },
+          { role: 'user', content: prompt },
+        ],
+        tools: [],
+        temperature: 0.2,
+        timeoutMs: 15000,
+      });
+
+      const cleanedContent = res.message.content.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+      const parsed = JSON.parse(cleanedContent);
+
+      return {
+        executiveSummary: parsed.executiveSummary || 'Executive summary unavailable.',
+        legalContext: parsed.legalContext || 'Statutory review under FCRA § 611 and § 623.',
+        consumerRightsNotice: parsed.consumerRightsNotice || 'Consumer retains dispute rights under federal law.',
+        recommendedActionPlan: Array.isArray(parsed.recommendedActionPlan) ? parsed.recommendedActionPlan : ['Review dispute details.'],
+        providerUsed: res.providerUsed,
+        isMockOrFallback: false,
+        legalDisclaimer: this.LEGAL_DISCLAIMER,
+      };
     } catch (err) {
-      console.warn('External LLM call failed or unconfigured, falling back safely:', err);
+      console.warn('External live LLM call failed or unconfigured, falling back safely to deterministic engine:', err);
       return this.generateDeterministicEnrichment(report, classification, evidence);
     }
   }
