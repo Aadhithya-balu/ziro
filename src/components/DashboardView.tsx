@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -34,6 +34,332 @@ interface DashboardViewProps {
   onNavigateToTestLab: () => void;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   CINEMATIC 3D VESPER PRISM CENTERPIECE
+   High-quality multi-faceted crystal with real-time pointer tracking & caustics
+   ───────────────────────────────────────────────────────────────────────────── */
+function CinematicVesperPrism({ mousePos }: { mousePos: { x: number; y: number } }) {
+  const prismRef = useRef<HTMLDivElement>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const currentRot = useRef({ rx: 14, ry: -18, rz: 0, ty: 0 });
+
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+
+    const startTime = performance.now();
+
+    const render = (now: number) => {
+      const t = (now - startTime) / 1000;
+
+      // Base idle continuous precession
+      const targetRx = 14 + Math.sin(t * 0.75) * 8 - mousePos.y * 18;
+      const targetRy = -18 + Math.cos(t * 0.55) * 24 + mousePos.x * 24;
+      const targetRz = Math.sin(t * 0.45) * 4;
+      const targetTy = Math.sin(t * 0.95) * -7;
+
+      // Smooth interpolation (lerp)
+      currentRot.current.rx += (targetRx - currentRot.current.rx) * 0.08;
+      currentRot.current.ry += (targetRy - currentRot.current.ry) * 0.08;
+      currentRot.current.rz += (targetRz - currentRot.current.rz) * 0.08;
+      currentRot.current.ty += (targetTy - currentRot.current.ty) * 0.08;
+
+      if (prismRef.current) {
+        prismRef.current.style.transform =
+          `rotateX(${currentRot.current.rx}deg) ` +
+          `rotateY(${currentRot.current.ry}deg) ` +
+          `rotateZ(${currentRot.current.rz}deg) ` +
+          `translateY(${currentRot.current.ty}px)`;
+      }
+
+      animFrameRef.current = requestAnimationFrame(render);
+    };
+
+    animFrameRef.current = requestAnimationFrame(render);
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+  }, [mousePos, prefersReducedMotion]);
+
+  return (
+    <div
+      className="relative flex items-center justify-center flex-shrink-0"
+      style={{
+        perspective: '900px',
+        width: 140,
+        height: 140,
+      }}
+    >
+      {/* Ambient caustics glow pool */}
+      <div
+        className="absolute rounded-full pointer-events-none transition-all duration-300"
+        style={{
+          width: 150,
+          height: 150,
+          background: 'radial-gradient(circle, var(--vp-prism-ambient) 0%, transparent 70%)',
+          filter: 'blur(24px)',
+          opacity: 0.65,
+        }}
+      />
+
+      {/* 3D Transform Container */}
+      <div
+        ref={prismRef}
+        className="relative"
+        style={{
+          width: 100,
+          height: 100,
+          transformStyle: 'preserve-3d',
+          transform: 'rotateX(14deg) rotateY(-18deg)',
+        }}
+      >
+        {/* Core Luminescent Shard (Internal Refraction) */}
+        <div
+          className="absolute inset-4 rounded-lg pointer-events-none"
+          style={{
+            background: 'linear-gradient(135deg, var(--vp-accent-violet-text) 0%, var(--vp-accent-coral) 50%, var(--vp-accent-brass) 100%)',
+            opacity: 0.35,
+            filter: 'blur(4px)',
+            transform: 'translateZ(0px) rotate(45deg)',
+          }}
+        />
+
+        {/* Facet 1: Front Spectral Violet Primary */}
+        <div
+          className="absolute inset-0 rounded-xl"
+          style={{
+            background: 'linear-gradient(135deg, rgba(140,104,253,0.72) 0%, rgba(90,63,212,0.22) 100%)',
+            border: '1.5px solid var(--vp-border-seam-violet)',
+            boxShadow: '0 0 28px var(--vp-accent-violet-glow)',
+            backdropFilter: 'blur(3px)',
+            WebkitBackdropFilter: 'blur(3px)',
+            transform: 'translateZ(34px)',
+          }}
+        />
+
+        {/* Facet 2: Right Signal Coral Reflection */}
+        <div
+          className="absolute inset-0 rounded-xl"
+          style={{
+            background: 'linear-gradient(135deg, rgba(255,128,109,0.58) 0%, rgba(255,128,109,0.08) 100%)',
+            border: '1.5px solid var(--vp-border-seam-coral)',
+            transform: 'rotateY(60deg) translateZ(34px)',
+          }}
+        />
+
+        {/* Facet 3: Left Liquid Brass Milestone Reflection */}
+        <div
+          className="absolute inset-0 rounded-xl"
+          style={{
+            background: 'linear-gradient(135deg, rgba(230,191,120,0.58) 0%, rgba(230,191,120,0.08) 100%)',
+            border: '1.5px solid var(--vp-border-seam-brass)',
+            transform: 'rotateY(-60deg) translateZ(34px)',
+          }}
+        />
+
+        {/* Facet 4: Top Specular Crystal Cap */}
+        <div
+          className="absolute left-0 right-0 rounded-md"
+          style={{
+            top: -16,
+            height: 36,
+            background: 'linear-gradient(180deg, var(--vp-prism-sheen) 0%, transparent 100%)',
+            border: '1px solid rgba(255,255,255,0.25)',
+            transform: 'rotateX(72deg) translateZ(12px)',
+          }}
+        />
+
+        {/* Facet 5: Bottom Emerald/Teal Horizon */}
+        <div
+          className="absolute left-0 right-0 rounded-md"
+          style={{
+            bottom: -16,
+            height: 36,
+            background: 'linear-gradient(0deg, rgba(45,212,191,0.3) 0%, transparent 100%)',
+            border: '1px solid rgba(45,212,191,0.25)',
+            transform: 'rotateX(-72deg) translateZ(12px)',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   INTERACTIVE KPI STAT CARD (3D TILT + PRISM SEAM)
+   ───────────────────────────────────────────────────────────────────────────── */
+interface KpiCardProps {
+  title: string;
+  value: number;
+  desc: string;
+  icon: React.ElementType;
+  seam: string;
+  finger: string;
+  badge: string;
+  badgeClass: string;
+}
+
+function KpiCard({ title, value, desc, icon: Icon, seam, finger, badge, badgeClass }: KpiCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [sheenStyle, setSheenStyle] = useState({ opacity: 0, x: 50, y: 50 });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const el = cardRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const dx = (x - cx) / cx;
+    const dy = (y - cy) / cy;
+
+    el.style.transform = `perspective(600px) rotateX(${-dy * 4}deg) rotateY(${dx * 4}deg) translateY(-2px)`;
+    setSheenStyle({ opacity: 1, x: (x / rect.width) * 100, y: (y / rect.height) * 100 });
+  };
+
+  const handleMouseLeave = () => {
+    if (cardRef.current) {
+      cardRef.current.style.transform = '';
+    }
+    setSheenStyle({ opacity: 0, x: 50, y: 50 });
+  };
+
+  return (
+    <div
+      ref={cardRef}
+      className={`vp-card ${seam} relative overflow-hidden flex flex-col justify-between`}
+      style={{
+        padding: '1.25rem',
+        minHeight: '160px',
+        transition: 'transform 0.22s ease, box-shadow 0.22s ease, border-color 0.18s ease',
+      }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Dynamic specular light sheen */}
+      <div
+        className="absolute inset-0 pointer-events-none transition-opacity duration-300"
+        style={{
+          opacity: sheenStyle.opacity * 0.18,
+          background: `radial-gradient(circle at ${sheenStyle.x}% ${sheenStyle.y}%, rgba(255,255,255,0.8) 0%, transparent 60%)`,
+        }}
+      />
+
+      {/* Top row */}
+      <div>
+        <div className="flex items-start justify-between mb-3">
+          <span className={`vp-badge ${badgeClass}`}>{badge}</span>
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{
+              background: 'var(--vp-bg-surface-elevated)',
+              border: '1px solid var(--vp-border)',
+            }}
+          >
+            <Icon className="w-4 h-4" style={{ color: 'var(--vp-text-secondary)' }} />
+          </div>
+        </div>
+
+        <p className="text-xs font-semibold" style={{ color: 'var(--vp-text-secondary)' }}>
+          {title}
+        </p>
+
+        {/* Value */}
+        <div className="flex items-baseline gap-2 mt-1">
+          <span
+            className="text-3xl font-extrabold tracking-tight"
+            style={{
+              color: 'var(--vp-text-primary)',
+              fontFeatureSettings: '"tnum"',
+            }}
+          >
+            {value}
+          </span>
+          <span className="text-xs" style={{ color: 'var(--vp-text-muted)' }}>
+            {desc}
+          </span>
+        </div>
+      </div>
+
+      {/* Footer fingerprint indicator */}
+      <div
+        className="pt-3 mt-3 flex items-center gap-2"
+        style={{ borderTop: '1px solid var(--vp-border-subtle)' }}
+      >
+        <span className={`vp-finger ${finger}`} />
+        <span className="text-[10px] font-medium" style={{ color: 'var(--vp-text-muted)' }}>
+          Synthetic Trade-Line Tracking
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Status badges with accessible contrast & geometric markers ── */
+function StatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case 'AWAITING_APPROVAL':
+      return (
+        <span className="vp-badge vp-badge-violet inline-flex items-center gap-1.5">
+          <Clock className="w-3 h-3" /> Awaiting Approval
+        </span>
+      );
+    case 'APPROVED':
+      return (
+        <span className="vp-badge vp-badge-brass inline-flex items-center gap-1.5">
+          <ShieldCheck className="w-3 h-3" /> Approved
+        </span>
+      );
+    case 'SUBMITTED':
+    case 'UNDER_REVIEW':
+      return (
+        <span className="vp-badge vp-badge-teal inline-flex items-center gap-1.5">
+          <Send className="w-3 h-3" /> Bureau Review
+        </span>
+      );
+    case 'ADDITIONAL_INFORMATION_REQUIRED':
+      return (
+        <span className="vp-badge vp-badge-coral inline-flex items-center gap-1.5">
+          <AlertTriangle className="w-3 h-3" /> ID Required
+        </span>
+      );
+    case 'RESOLVED':
+      return (
+        <span className="vp-badge vp-badge-emerald inline-flex items-center gap-1.5">
+          <CheckCircle2 className="w-3 h-3" /> Resolved
+        </span>
+      );
+    default:
+      return <span className="vp-badge vp-badge-muted">{status}</span>;
+  }
+}
+
+function FingerForStatus({ status }: { status: string }) {
+  switch (status) {
+    case 'AWAITING_APPROVAL': return <span className="vp-finger vp-finger-violet" />;
+    case 'APPROVED':          return <span className="vp-finger vp-finger-brass" />;
+    case 'SUBMITTED':
+    case 'UNDER_REVIEW':      return <span className="vp-finger vp-finger-teal" />;
+    case 'ADDITIONAL_INFORMATION_REQUIRED': return <span className="vp-finger vp-finger-coral" />;
+    case 'RESOLVED':          return <span className="vp-finger vp-finger-emerald" />;
+    default:                  return <span className="vp-finger vp-finger-muted" />;
+  }
+}
+
+const STATUS_FILTERS = [
+  'ALL',
+  'AWAITING_APPROVAL',
+  'APPROVED',
+  'SUBMITTED',
+  'ADDITIONAL_INFORMATION_REQUIRED',
+  'RESOLVED',
+] as const;
+
 export function DashboardView({
   metrics,
   cases,
@@ -41,294 +367,298 @@ export function DashboardView({
   onNavigateToIntake,
   onNavigateToTestLab,
 }: DashboardViewProps) {
-  const statCards = [
+  const [filter, setFilter] = useState<string>('ALL');
+  const [heroMouse, setHeroMouse] = useState({ x: 0, y: 0 });
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  const handleHeroMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!heroRef.current) return;
+    const rect = heroRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+    setHeroMouse({ x, y });
+  }, []);
+
+  const handleHeroMouseLeave = useCallback(() => {
+    setHeroMouse({ x: 0, y: 0 });
+  }, []);
+
+  const statCards: KpiCardProps[] = [
     {
       title: 'Total Ingested Cases',
       value: metrics.totalCases,
-      desc: 'Credit trade-lines monitored',
+      desc: 'trade-lines monitored',
       icon: FolderOpen,
-      color: 'from-blue-600 to-indigo-600',
-      badge: 'Portfolio',
+      seam: 'vp-seam-violet',
+      finger: 'vp-finger-violet',
+      badge: 'PORTFOLIO',
+      badgeClass: 'vp-badge-violet',
     },
     {
       title: 'Potential Errors Identified',
       value: metrics.potentialErrors,
-      desc: 'Actionable factual discrepancies',
+      desc: 'actionable discrepancies',
       icon: AlertTriangle,
-      color: 'from-amber-500 to-orange-600',
-      badge: 'Actionable',
+      seam: 'vp-seam-coral',
+      finger: 'vp-finger-coral',
+      badge: 'ACTIONABLE',
+      badgeClass: 'vp-badge-coral',
     },
     {
       title: 'Awaiting User Approval',
       value: metrics.awaitingApproval,
-      desc: 'Human sign-off strictly required',
+      desc: 'human sign-off required',
       icon: Clock,
-      color: 'from-purple-600 to-pink-600',
-      badge: 'Security Gate',
+      seam: 'vp-seam-brass',
+      finger: 'vp-finger-brass',
+      badge: 'SECURITY GATE',
+      badgeClass: 'vp-badge-brass',
     },
     {
       title: 'Submitted to Bureau',
       value: metrics.submittedDisputes,
-      desc: 'Active in Mock Credit Bureau',
+      desc: 'active investigations',
       icon: Send,
-      color: 'from-cyan-500 to-blue-600',
-      badge: 'In Flight',
+      seam: 'vp-seam-teal',
+      finger: 'vp-finger-teal',
+      badge: 'IN FLIGHT',
+      badgeClass: 'vp-badge-teal',
     },
     {
       title: 'Resolved Disputes',
       value: metrics.resolvedDisputes,
-      desc: 'Pending outcome verification',
+      desc: 'pending outcome audit',
       icon: CheckCircle2,
-      color: 'from-emerald-500 to-teal-600',
-      badge: 'Closed Queue',
+      seam: 'vp-seam-emerald',
+      finger: 'vp-finger-emerald',
+      badge: 'CLOSED QUEUE',
+      badgeClass: 'vp-badge-emerald',
     },
     {
       title: 'Additional Evidence Required',
       value: metrics.requiringAdditionalEvidence,
-      desc: 'Uncertain or KYC paused',
+      desc: 'uncertain or KYC paused',
       icon: HelpCircle,
-      color: 'from-rose-500 to-red-600',
-      badge: 'Needs Input',
+      seam: 'vp-seam-coral',
+      finger: 'vp-finger-coral',
+      badge: 'NEEDS INPUT',
+      badgeClass: 'vp-badge-coral',
     },
   ];
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'AWAITING_APPROVAL':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/30">
-            <Clock className="w-3 h-3 mr-1" />
-            Awaiting Approval
-          </span>
-        );
-      case 'APPROVED':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/30">
-            <ShieldCheck className="w-3 h-3 mr-1" />
-            Approved
-          </span>
-        );
-      case 'SUBMITTED':
-      case 'UNDER_REVIEW':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-            <Send className="w-3 h-3 mr-1" />
-            Bureau Review
-          </span>
-        );
-      case 'ADDITIONAL_INFORMATION_REQUIRED':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
-            <AlertTriangle className="w-3 h-3 mr-1" />
-            ID Required (Paused)
-          </span>
-        );
-      case 'RESOLVED':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-            <CheckCircle2 className="w-3 h-3 mr-1" />
-            Resolved
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
-            {status}
-          </span>
-        );
-    }
-  };
-
-  const getClassificationBadge = (cls?: string) => {
-    switch (cls) {
-      case 'POTENTIAL_ERROR':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-            POTENTIAL ERROR
-          </span>
-        );
-      case 'ACCURATE_NEGATIVE':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
-            ACCURATE NEGATIVE
-          </span>
-        );
-      case 'UNCERTAIN':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
-            UNCERTAIN
-          </span>
-        );
-      default:
-        return (
-          <span className="text-xs text-slate-400 font-medium italic">Pending Analysis</span>
-        );
-    }
-  };
+  const filteredCases = filter === 'ALL'
+    ? cases
+    : cases.filter((c) => c.workflowStatus === filter);
 
   return (
-    <div className="space-y-8 animate-fadeIn">
-      {/* Synthetic Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
-                PROTOTYPE NOTICE
-              </span>
-              <span className="text-xs text-slate-400">All data displayed is synthetic and simulated</span>
+    <div className="space-y-8 vp-fade-up pb-12">
+
+      {/* ── Hero Banner with 3D Cinematic Prism ── */}
+      <div
+        ref={heroRef}
+        onMouseMove={handleHeroMouseMove}
+        onMouseLeave={handleHeroMouseLeave}
+        className="vp-card vp-card-elevated vp-precision-grid relative overflow-hidden"
+        style={{ padding: '2rem 2.25rem' }}
+      >
+        {/* Ambient violet and coral radial lighting */}
+        <div
+          className="absolute right-0 top-0 w-96 h-96 pointer-events-none transition-all duration-300"
+          style={{
+            background: 'radial-gradient(ellipse at top right, var(--vp-accent-violet-glow) 0%, transparent 70%)',
+            opacity: 0.8,
+          }}
+        />
+        <div
+          className="absolute bottom-0 left-0 w-72 h-40 pointer-events-none"
+          style={{
+            background: 'radial-gradient(ellipse at bottom left, var(--vp-accent-coral-glow) 0%, transparent 70%)',
+            opacity: 0.5,
+          }}
+        />
+
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="flex items-center gap-6">
+            {/* Cinematic 3D Prism Centerpiece */}
+            <CinematicVesperPrism mousePos={heroMouse} />
+
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="vp-badge vp-badge-violet">PROTOTYPE NOTICE</span>
+                <span className="text-xs" style={{ color: 'var(--vp-text-secondary)' }}>
+                  All data displayed is synthetic and simulated
+                </span>
+              </div>
+              <h1
+                className="text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight"
+                style={{ color: 'var(--vp-text-primary)' }}
+              >
+                Credit Dispute &amp; Independent Outcome Audit
+                <br />
+                <span style={{ color: 'var(--vp-accent-violet-text)' }}>Control Center</span>
+              </h1>
+              <p className="text-sm max-w-2xl" style={{ color: 'var(--vp-text-secondary)', lineHeight: 1.6 }}>
+                ZiroCredit analyzes credit trade-lines, generates evidence-backed disputes, enforces
+                human sign-off before submission, and independently re-downloads credit files to audit
+                actual bureau correction outcomes.
+              </p>
             </div>
-            <h1 className="text-2xl font-black text-white tracking-tight">
-              Credit Dispute & Independent Outcome Audit Control Center
-            </h1>
-            <p className="text-sm text-slate-300 max-w-2xl">
-              ZiroCredit analyzes credit trade-lines, generates evidence-backed disputes, enforces human sign-off before submission, and independently re-downloads credit files to audit actual bureau correction outcomes.
-            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={onNavigateToIntake}
-              className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-md shadow-indigo-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
-            >
+          {/* Primary Action controls */}
+          <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
+            <button className="vp-btn-primary" onClick={onNavigateToIntake}>
               <PlusCircle className="w-4 h-4" />
-              <span>New Analysis</span>
+              New Analysis
             </button>
-            <button
-              onClick={onNavigateToTestLab}
-              className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-sm shadow transition-all hover:scale-[1.02]"
-            >
-              <FlaskConical className="w-4 h-4 text-cyan-400" />
-              <span>Launch Test Lab</span>
+            <button className="vp-btn-ghost" onClick={onNavigateToTestLab}>
+              <FlaskConical className="w-4 h-4" style={{ color: 'var(--vp-accent-teal)' }} />
+              Launch Test Lab
             </button>
           </div>
         </div>
       </div>
 
-      {/* KPI Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {statCards.map((stat, idx) => {
-          const Icon = stat.icon;
-          return (
-            <div
-              key={idx}
-              className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden hover:border-slate-700 transition"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold text-slate-400">{stat.title}</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
-                  {stat.badge}
-                </span>
-              </div>
-              <div className="flex items-baseline space-x-3">
-                <span className="text-3xl font-extrabold text-white tracking-tight">{stat.value}</span>
-                <span className="text-xs text-slate-400">{stat.desc}</span>
-              </div>
-              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-                <div className="flex items-center space-x-1.5">
-                  <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${stat.color}`} />
-                  <span>Synthetic Trade-Line Tracking</span>
-                </div>
-                <Icon className="w-4 h-4 text-slate-400" />
-              </div>
-            </div>
-          );
-        })}
+      {/* ── KPI Stat Cards ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 vp-stagger">
+        {statCards.map((stat, idx) => (
+          <KpiCard key={idx} {...stat} />
+        ))}
       </div>
 
-      {/* Recent Activity Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
-        <div className="p-5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* ── Case Table ── */}
+      <div className="vp-card overflow-hidden">
+        {/* Table header */}
+        <div
+          className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          style={{ borderBottom: '1px solid var(--vp-border)' }}
+        >
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-              <FileText className="w-5 h-5 text-indigo-400" />
-              <span>Recent Trade-Line Cases & Workflow Status</span>
+            <h2
+              className="text-base font-bold flex items-center gap-2"
+              style={{ color: 'var(--vp-text-primary)' }}
+            >
+              <FileText className="w-4 h-4" style={{ color: 'var(--vp-accent-violet)' }} />
+              Trade-Line Cases &amp; Workflow Status
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs mt-0.5" style={{ color: 'var(--vp-text-secondary)' }}>
               Select any case to inspect evidence, review AI dispute drafts, approve submissions, or verify outcomes.
             </p>
           </div>
-          <div className="text-xs text-slate-400 font-medium">
-            Showing {cases.length} synthetic cases
+          <div className="text-xs font-mono font-semibold" style={{ color: 'var(--vp-text-muted)' }}>
+            {filteredCases.length} / {cases.length} cases
           </div>
         </div>
 
+        {/* Status filter pills */}
+        <div
+          className="px-6 py-3 flex items-center gap-2 overflow-x-auto"
+          style={{
+            borderBottom: '1px solid var(--vp-border-subtle)',
+            background: 'var(--vp-bg-surface-elevated)',
+          }}
+        >
+          <span className="text-[11px] font-bold uppercase tracking-wider mr-1" style={{ color: 'var(--vp-text-muted)' }}>
+            Filter:
+          </span>
+          {STATUS_FILTERS.map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilter(s)}
+              className="text-[11px] font-semibold px-3 py-1 rounded-md transition-all whitespace-nowrap"
+              style={{
+                fontFamily: 'inherit',
+                background: filter === s ? 'var(--vp-accent-violet-dim)' : 'transparent',
+                color:      filter === s ? 'var(--vp-accent-violet-text)' : 'var(--vp-text-secondary)',
+                border:     filter === s ? '1px solid var(--vp-border-seam-violet)' : '1px solid transparent',
+                cursor: 'pointer',
+              }}
+            >
+              {s === 'ALL' ? 'All Cases' : s.replace(/_/g, ' ').replace(/\b(\w)/g, (c) => c.toUpperCase())}
+            </button>
+          ))}
+        </div>
+
+        {/* Table body */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-950/60 text-xs uppercase font-semibold text-slate-400 tracking-wider border-b border-slate-800">
-              <tr>
-                <th scope="col" className="px-5 py-3.5">Case ID</th>
-                <th scope="col" className="px-5 py-3.5">Account Ref</th>
-                <th scope="col" className="px-5 py-3.5">Issue Type</th>
-                <th scope="col" className="px-5 py-3.5">Classification</th>
-                <th scope="col" className="px-5 py-3.5">Confidence</th>
-                <th scope="col" className="px-5 py-3.5">Current Status</th>
-                <th scope="col" className="px-5 py-3.5">Last Updated</th>
-                <th scope="col" className="px-5 py-3.5 text-right">Action</th>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr
+                className="text-[11px] font-bold uppercase tracking-wider"
+                style={{
+                  color: 'var(--vp-text-muted)',
+                  borderBottom: '1px solid var(--vp-border)',
+                }}
+              >
+                <th className="pl-6 py-3.5 w-6"></th>
+                <th className="px-4 py-3.5">Case ID</th>
+                <th className="px-4 py-3.5">Account Ref</th>
+                <th className="px-4 py-3.5">Discrepancy / Client</th>
+                <th className="px-4 py-3.5">Status</th>
+                <th className="px-4 py-3.5">Updated</th>
+                <th className="pr-6 py-3.5 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/80">
-              {cases.length === 0 ? (
+            <tbody className="divide-y" style={{ borderColor: 'var(--vp-border-subtle)' }}>
+              {filteredCases.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-slate-500">
-                    No active cases found. Click "New Analysis" or run the Test Lab to populate demonstration cases.
+                  <td colSpan={7} className="px-6 py-12 text-center text-sm" style={{ color: 'var(--vp-text-muted)' }}>
+                    No trade-line cases match the selected filter.
                   </td>
                 </tr>
               ) : (
-                cases.map((c) => (
+                filteredCases.map((c) => (
                   <tr
                     key={c.id}
-                    className="hover:bg-slate-800/40 transition cursor-pointer"
                     onClick={() => onOpenCase(c.id)}
+                    className="vp-table-row cursor-pointer"
                   >
-                    <td className="px-5 py-4 font-mono text-xs font-bold text-indigo-300">
+                    <td className="pl-6 py-4 w-4">
+                      <FingerForStatus status={c.workflowStatus} />
+                    </td>
+                    <td
+                      className="px-4 py-4 font-mono text-xs font-bold"
+                      style={{ color: 'var(--vp-accent-violet-text)' }}
+                    >
                       {c.id}
                     </td>
-                    <td className="px-5 py-4 font-mono text-xs text-slate-300">
+                    <td
+                      className="px-4 py-4 font-mono text-xs"
+                      style={{ color: 'var(--vp-text-secondary)' }}
+                    >
                       {c.accountReference}
                     </td>
-                    <td className="px-5 py-4 font-medium text-slate-200">
+                    <td className="px-4 py-4 text-xs font-medium" style={{ color: 'var(--vp-text-primary)' }}>
                       {c.issueType}
-                      <span className="block text-[11px] text-slate-400 font-normal">{c.clientName}</span>
+                      <span className="block text-[11px] font-normal" style={{ color: 'var(--vp-text-muted)' }}>
+                        {c.clientName}
+                      </span>
                     </td>
-                    <td className="px-5 py-4">
-                      {getClassificationBadge(c.classification)}
+                    <td className="px-4 py-4">
+                      <StatusBadge status={c.workflowStatus} />
                     </td>
-                    <td className="px-5 py-4">
-                      {c.confidenceScore ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="w-16 bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className="bg-indigo-500 h-1.5 rounded-full"
-                              style={{ width: `${Math.round(c.confidenceScore * 100)}%` }}
-                            />
-                          </div>
-                          <span className="text-xs font-semibold text-slate-300">
-                            {Math.round(c.confidenceScore * 100)}%
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      {getStatusBadge(c.workflowStatus)}
-                    </td>
-                    <td className="px-5 py-4 text-xs text-slate-400 font-mono">
+                    <td
+                      suppressHydrationWarning
+                      className="px-4 py-4 font-mono text-xs"
+                      style={{ color: 'var(--vp-text-muted)' }}
+                    >
                       {new Date(c.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </td>
-                    <td className="px-5 py-4 text-right">
+                    <td className="pr-6 py-4 text-right">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenCase(c.id);
+                        onClick={(e) => { e.stopPropagation(); onOpenCase(c.id); }}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                        style={{
+                          background: 'var(--vp-accent-violet-dim)',
+                          color: 'var(--vp-accent-violet-text)',
+                          border: '1px solid var(--vp-border-seam-violet)',
+                          fontFamily: 'inherit',
+                          cursor: 'pointer',
                         }}
-                        className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600 hover:text-white border border-indigo-500/30 text-xs font-medium transition"
                       >
                         <Eye className="w-3.5 h-3.5" />
-                        <span>Inspect</span>
-                        <ArrowRight className="w-3 h-3 ml-0.5" />
+                        Inspect
+                        <ArrowRight className="w-3 h-3" />
                       </button>
                     </td>
                   </tr>

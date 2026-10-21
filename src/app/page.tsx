@@ -73,7 +73,10 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
+    <div
+      className="min-h-screen flex flex-col transition-colors duration-200"
+      style={{ backgroundColor: 'var(--vp-midnight)', color: 'var(--vp-porcelain)' }}
+    >
       {/* Top Navbar */}
       <Navbar
         activeTab={activeTab}
@@ -124,14 +127,26 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-slate-900 bg-slate-950/80 py-6 text-center text-xs text-slate-400">
+      <footer
+        className="mt-auto py-5 text-center text-xs"
+        style={{
+          background: 'var(--vp-graphite)',
+          borderTop: '1px solid var(--vp-graphite-rim)',
+          color: 'var(--vp-muted)',
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center space-x-2">
-            <span className="font-extrabold text-slate-200 tracking-tight">ZiroCredit</span>
-            <span>— AI Credit Report Error Dispute & Verification Assistant</span>
+          <div className="flex items-center gap-2">
+            <span
+              className="font-extrabold tracking-tight"
+              style={{ color: 'var(--vp-porcelain)' }}
+            >
+              ZiroCredit
+            </span>
+            <span>— AI Credit Report Error Dispute &amp; Verification Assistant</span>
           </div>
-          <p className="text-[11px] text-slate-400">
-            Synthetic & Isolated Demonstration Environment • Strict FCRA Compliance Prototype
+          <p style={{ fontSize: '0.6875rem', color: 'var(--vp-muted)' }}>
+            Synthetic &amp; Isolated Demonstration Environment • Strict FCRA Compliance Prototype
           </p>
         </div>
       </footer>
